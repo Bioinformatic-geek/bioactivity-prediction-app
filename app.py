@@ -7,12 +7,34 @@ import base64
 import pickle
 
 # Molecular descriptor calculator
-def desc_calc():
-    # Performs the descriptor calculation
-    bashCommand = "java -Xms2G -Xmx2G -Djava.awt.headless=true -jar ./PaDEL-Descriptor/PaDEL-Descriptor.jar -removesalt -standardizenitro -fingerprints -descriptortypes ./PaDEL-Descriptor/PubchemFingerprinter.xml -dir ./ -file descriptors_output.csv"
-    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    os.remove('molecule.smi')
+from rdkit import Chem
+from rdkit.Chem import Descriptors, AllChem, MACCSkeys
+import pandas as pd
+
+def desc_calc(input_smiles_file, output_csv_file):
+    # Read SMILES
+    with open(input_smiles_file) as f:
+        smiles_list = [line.strip() for line in f.readlines()]
+    
+    data = []
+    for smi in smiles_list:
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        descriptors = {}
+        descriptors['MolWt'] = Descriptors.MolWt(mol)
+        descriptors['LogP'] = Descriptors.MolLogP(mol)
+        # add other descriptors you need
+        # Example: PubChem-like fingerprints
+        fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048)
+        fp_bits = list(fp)
+        for i, bit in enumerate(fp_bits):
+            descriptors[f'Bit_{i}'] = bit
+        data.append(descriptors)
+
+    df = pd.DataFrame(data)
+    df.to_csv(output_csv_file, index=False)
+
 
 # File download
 def filedownload(df):
