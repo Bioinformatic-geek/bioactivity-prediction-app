@@ -1,40 +1,42 @@
 import streamlit as st
 import pandas as pd
 from PIL import Image
-import subprocess
-import os
-import base64
-import pickle
+
 
 # Molecular descriptor calculator
 from rdkit import Chem
-from rdkit.Chem import Descriptors, AllChem, MACCSkeys
+from rdkit.Chem import Descriptors, AllChem
 import pandas as pd
 
 def desc_calc(input_smiles_file, output_csv_file):
-    # Read SMILES
+    # Read SMILES from file
     with open(input_smiles_file) as f:
-        smiles_list = [line.strip() for line in f.readlines()]
-    
+        smiles_list = [line.strip() for line in f if line.strip()]
+
     data = []
     for smi in smiles_list:
         mol = Chem.MolFromSmiles(smi)
         if mol is None:
-            continue
-        descriptors = {}
-        descriptors['MolWt'] = Descriptors.MolWt(mol)
-        descriptors['LogP'] = Descriptors.MolLogP(mol)
-        # add other descriptors you need
-        # Example: PubChem-like fingerprints
+            continue  # skip invalid SMILES
+
+        descriptors = {
+            'SMILES': smi,
+            'MolWt': Descriptors.MolWt(mol),
+            'LogP': Descriptors.MolLogP(mol),
+        }
+
+        # Example: Morgan fingerprint bits (PubChem-like)
         fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048)
-        fp_bits = list(fp)
-        for i, bit in enumerate(fp_bits):
-            descriptors[f'Bit_{i}'] = bit
+        for i in range(fp.GetNumBits()):
+            descriptors[f'Bit_{i}'] = fp[i]
+
         data.append(descriptors)
 
+    # Write to CSV
     df = pd.DataFrame(data)
     df.to_csv(output_csv_file, index=False)
 
+            
 
 # File download
 def filedownload(df):
